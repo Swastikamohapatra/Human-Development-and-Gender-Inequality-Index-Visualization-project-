@@ -1,0 +1,303 @@
+---
+title: "Human Deveopment Index and Gender Inequality Index"
+author: "Swastika Mohapatra MDS202245"
+date: "10/30/2022"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE,message=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.width=10, fig.height=8, message = FALSE,
+                      warning=FALSE)
+```
+<br>
+<h3> Introduction </h3>
+<br>
+<p> The Human Development Index (HDI) is a statistic that rank countries into four tiers of human development.These four categories are - Very high development, High development, Medium development and low development. Mathematically, it is the geometric mean of life expectancy, gross national income per capita and education. Education is the arithmetic mean of mean years of schooling completed and expected years of schooling upon entering the education system. </p>
+<p> The Gender Inequality Index is a statistic used to quantify the loss of achievement within a country due to gender inequality.It has 3 critical dimensions : reproductive health, empowerment, and labor market participation. </p>
+<p> This project tries to compare the difference between HDI and its components for top ranking and bottom ranking countries based on HDI. It further tries to analyze the trend in HDI over the years for top and bottom ranking countries based on HDI, and also the trend in median value of HDI for the 4 development categories. Comparison of Gender Inequality Index for top and bottom ranking countries based on GII is also carried out. Finally a scatter plot between HDI and GII is plotted to understand the relation between the 2 and a correlation plot is made between all components of HDI and GII to study how they are correlated to each other.
+<br>
+<br>
+<h3> Data Description </h3>
+<br>
+<p>For this analysis, 3 datasets were used - 1. Human development index and its components, 2. Trends in human development index 1990-2021, 3. Gender Inequality index.</p>
+The first dataset comprises of HDI value for each country along with the 4 components of HDI and the development category that the country falls into.</p>
+The second dataset comporises of HDI value for each country for 8 years spanning from 1990 to 2021.</p>
+The third dataset comprises of GII value for each country along with all its components and the development catagory that the country falls into based on GII.</p>
+<p>The datasets were taken from UNDP's Human Development Report website.</p>
+<p>The datasets had some missing values that were replaced with the median value of their respective columns.</p>
+<br>
+<br>
+```{r}
+# Packages
+
+library(readxl)
+library(reshape2)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(gridExtra)
+```
+
+```{r}
+HDI = read_excel("C:\\Visualization assignment\\HDI components.xlsx") 
+dfHDI = data.frame(HDI)
+GII = read_excel("C:\\Visualization assignment\\GII components.xlsx")
+dfGII = data.frame(GII)
+Genderwise_HDI_GII = read_excel("C:\\Visualization assignment\\Gender wise HDI & GII.xlsx")
+dfGHG = data.frame(Genderwise_HDI_GII)
+HDI_Timeseries = read_excel("C:\\Visualization assignment\\HDI time series.xlsx")
+dfHTS = data.frame(HDI_Timeseries)
+Income_share = read_excel("C:\\Visualization assignment\\Income share.xlsx")
+dfIS = data.frame(Income_share)
+
+for(country in dfHTS$Country){
+  dfHTS[which(dfHTS$Country==country),][which(is.na(dfHTS[which(dfHTS$Country==country),]))] = median(as.numeric(dfHTS[which(dfHTS$Country==country),][,4:11]),na.rm=TRUE)
+}
+
+
+df1 = merge(x=dfHDI, y=dfGII, by='Country')
+df1 = subset(df1, select = -c(HDI.rank.y,Development.Category.y) )
+df2 = merge(x=df1, y=dfGHG, by='Country')
+df2 = subset(df2, select = -c(HDI.rank,Development.Category) )
+df3 = merge(x=df2, y=dfHTS, by='Country')
+df3 = subset(df3, select = -c(HDI.rank,Development.Category) )
+df4 = merge(x=df3, y=dfIS, by='Country')
+df = subset(df4, select = -c(HDI.rank,Development.Category) )
+```
+
+
+
+
+<h3> Stacked barchart </h3>
+```{r, fig.width=11, fig.height=8}
+dfHDI$Education = apply(dfHDI[,6:7],1,mean)
+dfHDI = dfHDI[order(dfHDI$Human.Development.Index..HDI..201, decreasing = TRUE),]
+dfHDII = dfHDI[,c('Country','Development.Category','Human.Development.Index..HDI..201','Life.expectancy.at.birth.2021','Gross.national.income..GNI..per.capita.2017.PPP.','Education')]
+dfHDI = dfHDI[,c('Country','Human.Development.Index..HDI..201','Life.expectancy.at.birth.2021','Gross.national.income..GNI..per.capita.2017.PPP.','Education')]
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+dfHDI$Human.Development.Index..HDI..201_normalized<-normalize(dfHDI$Human.Development.Index..HDI..201)
+dfHDI$Life.expectancy.at.birth.2021_normalized<-normalize(dfHDI$Life.expectancy.at.birth.2021)
+dfHDI$Gross.national.income..GNI..per.capita.2017.PPP._normalized<-normalize(dfHDI$Gross.national.income..GNI..per.capita.2017.PPP.)
+dfHDI$Education_normalized<-normalize(dfHDI$Education)
+
+dfHDI = dfHDI[,c('Country','Human.Development.Index..HDI..201_normalized','Life.expectancy.at.birth.2021_normalized','Gross.national.income..GNI..per.capita.2017.PPP._normalized','Education_normalized')]
+
+#Top 10
+dfHDI1 = head(dfHDI, n=5)
+
+dfHDI1 <- dfHDI1 %>% rename( "Human developement index"="Human.Development.Index..HDI..201_normalized",
+                             "Life expectancy at birth"="Life.expectancy.at.birth.2021_normalized",
+                             "Gross national income per capita"="Gross.national.income..GNI..per.capita.2017.PPP._normalized",
+                             "Education"="Education_normalized")
+dfHDI1 = melt(dfHDI1,id=c('Country'))
+
+p1 = ggplot(dfHDI1, aes(fill=variable, y=value, x=Country)) + 
+  geom_bar(position="stack", stat="identity", color='Black')+
+  theme_classic()+theme(axis.text.x = element_text(angle = 35, vjust = 0.5, hjust=0.5),
+                        legend.title = element_blank(),
+        plot.title = element_text(size=13,hjust=0.5))+
+  labs(y="Normalized values",title="Human developement index \n and its components (Top 5 countries)")
+
+#Bottom 10
+dfHDI2 = tail(dfHDI, n=5)
+
+dfHDI2 <- dfHDI2 %>% rename( "Human developement index"="Human.Development.Index..HDI..201_normalized",
+                             "Life expectancy at birth"="Life.expectancy.at.birth.2021_normalized",
+                             "Gross national income per capita"="Gross.national.income..GNI..per.capita.2017.PPP._normalized",
+                             "Education"="Education_normalized")
+
+dfHDI2 = melt(dfHDI2,id=c('Country'))
+
+p2 = ggplot(dfHDI2, aes(fill=variable, y=value, x=Country)) + 
+  geom_bar(position="stack", stat="identity", color='Black')+
+  theme_classic()+coord_cartesian(ylim=c(0,1))+
+  theme(axis.text.x = element_text(angle = 35, vjust = 0.5, hjust=0.5),
+        legend.title = element_blank(),
+        plot.title = element_text(size=13,hjust=0.5))+
+  labs(y="Normalized values",title="Human developement index \n and its components (Bottom 5 countries)")
+
+grid.arrange(p1,p2,ncol=2)
+```
+<br>
+<br>
+
+<h3> Key demographics across each category </h3>
+```{r fig.height=5, fig.width=5, fig.align='center'}
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+dfHDII$Human.Development.Index..HDI..201_normalized<-normalize(dfHDII$Human.Development.Index..HDI..201)
+dfHDII$Life.expectancy.at.birth.2021_normalized<-normalize(dfHDII$Life.expectancy.at.birth.2021)
+dfHDII$Gross.national.income..GNI..per.capita.2017.PPP._normalized<-normalize(dfHDII$Gross.national.income..GNI..per.capita.2017.PPP.)
+dfHDII$Education_normalized<-normalize(dfHDII$Education)
+
+dfHDII = dfHDII[,c('Country','Development.Category','Human.Development.Index..HDI..201_normalized','Life.expectancy.at.birth.2021_normalized','Gross.national.income..GNI..per.capita.2017.PPP._normalized','Education_normalized')]
+
+dfHDII <- dfHDII %>% rename( "Human developement index"="Human.Development.Index..HDI..201_normalized",
+                             "Life expectancy at birth"="Life.expectancy.at.birth.2021_normalized",
+                             "Gross national income per capita"="Gross.national.income..GNI..per.capita.2017.PPP._normalized",
+                             "Education"="Education_normalized")
+
+df_grp_devcategory = dfHDII %>% group_by(Development.Category)  %>%
+  summarise(median_HDI = median(`Human developement index`),
+            median_Life_expectancy = median(`Life expectancy at birth`),
+            median_Education = median(`Education`),
+            median_GNI = median(`Gross national income per capita`))
+            .groups = 'drop'
+            
+df_grp_devcategory = melt(df_grp_devcategory,id=c('Development.Category'))
+            
+ggplot(df_grp_devcategory, aes(fill=variable, y=value, x=Development.Category)) + 
+  geom_bar(position="stack", stat="identity", color='Black')+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = -25, vjust = 0.5, hjust=0),
+        plot.title = element_text(hjust=0.5))+
+  labs(y="Normalized median values",title="Human developement index \n and its \n components (For each developement category)")
+
+```
+<br>
+<br>
+
+<h3> Trends in HDI in the top 5 and bottom 5 countries </h3>
+```{r}
+#Top 5
+newdf = dfHTS[1:5,]
+newdf$Development.Category=NULL
+newdf$HDI.rank=NULL
+
+newdf <- newdf %>% rename( "1990"="X1990","2000"="X2000","2010"="X2010","2015"="X2015","2018"="X2018","2019"="X2019","2020"="X2020","2021"="X2021")
+
+newdf = melt(newdf,id=c('Country'))
+
+p1 = ggplot(newdf)+
+  geom_line(aes(x=variable,y=value,group=Country, colour=Country))+
+  labs(x="Year",y="Human development index",title="Trend in HDI top 5 countries")+
+  geom_point(aes(x=variable,y=value,group=Country, colour = Country))+
+  theme(plot.title=element_text(hjust=0.5))+theme_classic()
+
+#Bottom 5
+newdf = tail(dfHTS,n=5)
+newdf$Development.Category=NULL
+newdf$HDI.rank=NULL
+
+newdf <- newdf %>% rename( "1990"="X1990","2000"="X2000","2010"="X2010","2015"="X2015","2018"="X2018","2019"="X2019","2020"="X2020","2021"="X2021")
+
+newdf = melt(newdf,id=c('Country'))
+
+p2 = ggplot(newdf)+
+  geom_line(aes(x=variable,y=value,group=Country, colour=Country))+
+  labs(x="Year",y="Human development index",title="Trend in HDI bottom 5 countries")+
+  geom_point(aes(x=variable,y=value,group=Country, colour = Country))+
+  theme(plot.title=element_text(hjust=0.5))+theme_classic()+coord_cartesian(y=c(0.2,0.5))
+
+grid.arrange(p1,p2, nrow=1, ncol=2)
+```
+<p> From the HDI trends line graph for top 5 countries based on HDI we can see that there has been a significant increase in HDI from 1990 to 2015 for all 5 countries. Following that, the HDI has remained more or less the same for all 5 countries. Norway seems to constantly have the highest HDI value over the past 31 years.</p>
+<p> Similarly, from the HDI trends line graph for bottom 5 countries based on HDI we can observe that though Niger had the lowest HDI from 1990 till 2018, there has been a steady increase in its HDI over the years. However it still remains one of the countries with lowest HDI. South Sudan had a sudden spike in its HDI in 2010, follwing which there was again a gradual decrease. All 5 countries have had HDI lower than 0.45 throughout 1990 till 2021.
+<br>
+<br>
+<h3> GII of top 5 and bottom 5 countries </h3>
+```{r}
+#Top 5
+newdf = GII[!is.na(GII$"Gender Inequality Index 2021"),]
+newdf = newdf[,c('Country','Gender Inequality Index 2021')]
+newdf = newdf[order(newdf$`Gender Inequality Index 2021`, decreasing = TRUE),]
+newdf = head(newdf, n=5)
+p1 = ggplot(newdf, aes(x=Country, y=`Gender Inequality Index 2021`,fill=Country)) + 
+  geom_bar(stat = "identity")+
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5),
+        axis.text = element_text(angle=45, vjust=0.5, hjust=1))+
+  labs(x="Country",y="Gender Inequality Index",title="Gender Inequality index for top 5 countries")
+  
+#Bottom 5
+newdf = GII[!is.na(GII$"Gender Inequality Index 2021"),]
+newdf = newdf[,c('Country','Gender Inequality Index 2021')]
+newdf = newdf[order(newdf$`Gender Inequality Index 2021`, decreasing = TRUE),]
+newdf = tail(newdf, n=5)
+p2 = ggplot(newdf, aes(x=Country, y=`Gender Inequality Index 2021`,fill=Country)) + 
+  geom_bar(stat = "identity")+coord_cartesian(ylim=c(0,0.1))+
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5),
+        axis.text = element_text(angle=45, vjust=0.5, hjust=1))+ 
+  labs(x="Country",y="Gender Inequality Index",title="Gender Inequality index for bottom 5 countries")
+grid.arrange(p1,p2, ncol=2, nrow=1)
+
+```
+<p> The bar graph for GII of top 5 countries based on GII shows that Afghanistan has the highest GII, followed by Papua New Guinea in 2021. All 5 countries have GII higher than 0.6.</p>
+<p>Similarly, the bar graph for GII of bottom 5 countries shows than Denmark has the lowest GII, follwed by Norway and Switzerland. All 5 countries have GII lower than 0.025. Norway and Switzerland were also in the top 5 countries having highest HDI.
+<br>
+<br>
+<h3> Scatter plot between HDI and GII </h3>
+```{r, fig.height=5, fig.width=5}
+df = df4[,c('Human.Development.Index..HDI..201','Gender.Inequality.Index.2021')]
+ggplot(df, aes(x=`Gender.Inequality.Index.2021`, y=`Human.Development.Index..HDI..201`)) + 
+  geom_point()+
+  labs(x="Human development index",y="Gender Inequality Index")+
+  theme_classic()+
+  theme(plot.title=element_text(hjust=0.5))
+```
+<p> The scatterplot between GII and HDI shows that a negative linear relationship exists between HDI and GII. It can also be seen that majority of the countries have HDI less than 0.4 and GII higher than 0.6. 
+<br>
+<br>
+<h3> Correlation Plot of different factors affecting HDI </h3>
+```{r, fig.height=7, fig.width=7}
+df = df4[,c('Life.expectancy.at.birth.2021','Expected.years.of.schooling.2021','Mean.years.of.schooling.2021','Gross.national.income..GNI..per.capita.2017.PPP.','Maternal.mortality.ratio..deaths.per.100.000.live.births..2017','Adolescent.birth.rate..births.per.1.000.women.ages.15.19..2021','Share.of.seats.in.parliament....held.by.women..2021','Population.with.at.least.some.secondary.education....ages.25.and.older..Female.2021','Population.with.at.least.some.secondary.education....ages.25.and.older..Male.2021','Labour.force.participation.rate....ages.15.and.older..Female.2021','Labour.force.participation.rate....ages.15.and.older..Male.2021','Gender.Development.Index.2021')]
+df <- df %>% rename("Life expectancy at birth"="Life.expectancy.at.birth.2021",
+                             "Gross national income per capita"="Gross.national.income..GNI..per.capita.2017.PPP.",
+                    "Expected years of schooling"="Expected.years.of.schooling.2021",
+                    "Mean years of schooling"="Mean.years.of.schooling.2021",
+                    "Maternal mortality rate"="Maternal.mortality.ratio..deaths.per.100.000.live.births..2017",
+                    "Adolescent birth rate"="Adolescent.birth.rate..births.per.1.000.women.ages.15.19..2021",
+                    "share of seats in parliament for women"="Share.of.seats.in.parliament....held.by.women..2021",
+                    "Female population with secondary education"='Population.with.at.least.some.secondary.education....ages.25.and.older..Female.2021',
+                    "Male population with secondary education"='Population.with.at.least.some.secondary.education....ages.25.and.older..Male.2021',
+                    "Labour force participation female"='Labour.force.participation.rate....ages.15.and.older..Female.2021',
+                    "Labour force participation male"='Labour.force.participation.rate....ages.15.and.older..Male.2021',
+                    "Gender development index"='Gender.Development.Index.2021')
+for(i in 1:ncol(df)){
+  df[is.na(df[,i]), i] <- median(df[,i], na.rm = TRUE)
+}
+corr = round(cor(df),2)
+upper_tri = function(corr){
+  corr[lower.tri(corr)]=NA
+  return(corr)
+}
+corr = upper_tri(corr)
+corr = melt(corr, na.rm=T)
+ggplot(data=corr, aes(Var2, Var1, fill = value))+
+  geom_tile(color='white')+
+  scale_fill_gradient2(low='blue', high='red', mid='white', midpoint=0, 
+                       limit=c(-1,1), space='Lab')+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5),
+        plot.title = element_text(hjust=0.5))+
+  labs(y="",x="",
+       fill='Scale')
+
+```
+From the correlation plot we can see that:
+<ol>
+<li> High positive correlation exists between Expected years of schooling and Life expectancy at birth </li>
+<li> High positive correlation exists between Gross national income per capita and Life expectancy at birth </li>
+<li> High positive correlation exists between Maternal mortality rate and Adolescent birth rate.</li>
+<li> High positive correlation exists between High negative correlation between Female population with secondary education and Adolescent birth rate/ Maternal mortality rate </li>
+</ol>
+<br>
+<br>
+<h3> Summary </h3>
+<p> Human development Index and Gender Inequality Index are key variables to assess a country's development. The analysis shows a high disparity exists across countries in these 2 variables and the components that these variables comprise of as well. Further the scatter plot also shows that a string negative linear relationship exists between HDI and GII, implying that countries with high human development tend to have lower gender inequality. Moreover, the trend in HDI over the last 30 years shows that there has been significant human development in most countries over this period.
+<br>
+<br>
+<h3> Conclusion </h3>
+<p> The project analyzed the relation between HDI and GII, and also the correlation between various components of HDI and GII using scatter plot and correlation map respectively. A comparison was also made between HDI and its components, and GII between well performing countries and poor performing countries.
+<br>
+<br>
+<h3> RShiny Dashboard </h3>
+<p> The dashboard will include the same plots as the ones in this report, but with an option to select multiple countries, instead of just top and bottom 5. This will help in carrying out a more thorough comparison. It will also try to incorporate a map plot that compares HDI and GII across countries. Further, we will try compare Gender development index, Human development index and its components for men and women and carry out a more in depth analysis using interactive plots. </p>
